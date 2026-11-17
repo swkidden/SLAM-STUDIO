@@ -26,6 +26,9 @@ class DataSources:
             lo = max(0, bisect.bisect_left(stamps, start)-1)
             hi = bisect.bisect_right(stamps, end)+1
             result['tracks'].append(dict(track, poses=poses[lo:hi]))
+        for kind in ('diagnostics', 'markers'):
+            samples = data.get(kind, [])
+            result[kind] = [s for s in samples if s['stamp'] <= end and (kind == 'markers' or s['stamp'] >= start)]
         result['cameras'] = []
         for stream in data['cameras']:
             lo = max(0, bisect.bisect_left(stream['stamps'], start)-1)

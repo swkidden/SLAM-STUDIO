@@ -1,5 +1,6 @@
 import React, {useEffect,useRef,forwardRef,useImperativeHandle} from 'react';
 import * as T from 'three';
+import {updateDebugMarkers} from './DebugMarkers';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {followView,lowerBound,displayPoseAt} from './model';
 
@@ -28,6 +29,8 @@ export default forwardRef(function Scene({data,time,settings},ref) {
     renderer.outputColorSpace=T.SRGBColorSpace;
     host.current.appendChild(renderer.domElement);
     const scene=new T.Scene();
+    const debugMarkers=new T.Group();scene.add(debugMarkers);
+    let debugTime=-1,debugSamples=null;
     const camera=new T.PerspectiveCamera(42,1,.01,10000);camera.up.set(0,0,1);
     const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=false;
     controls.screenSpacePanning=true;
@@ -193,6 +196,11 @@ export default forwardRef(function Scene({data,time,settings},ref) {
           camera.up.set(0,1,0).applyQuaternion(rotation);
         }
         camera.lookAt(controls.target);camera.up.set(0,0,1);
+      }
+      debugMarkers.visible=s.debugMarkers!==false;
+      if(debugMarkers.visible&&(debugTime!==time||debugSamples!==data.markers)){
+        updateDebugMarkers(debugMarkers,data.markers||[],time,data.project.frame_id||'global');
+        debugTime=time;debugSamples=data.markers;
       }
       renderer.render(scene,camera);
     };

@@ -33,6 +33,7 @@ def finite(value):
 
 from runner import ProcessRunner
 from archive import reader, image as archive_image
+from debug_stream import validate_samples, relative_samples, load_samples
 
 
 class LiveSession(ProcessRunner):
@@ -64,6 +65,9 @@ class LiveSession(ProcessRunner):
         self.counts = dict(poses=0, frames=0, dropped=0)
         self.poses = {s['id']: deque() for s in config['tracks']}
         self.frames = [deque() for _ in config['cameras']]
+        self.debug_samples = {"diagnostics": deque(maxlen=6000), "markers": deque(maxlen=6000)}
+        self.marker_state = {}
+        self.marker_clears = {}
         self.frame_bytes = 0
         archive_dir = Path(root) / 'cache' / 'recordings'
         archive_dir.mkdir(parents=True, exist_ok=True)
@@ -75,6 +79,8 @@ class LiveSession(ProcessRunner):
         self.archive.execute('CREATE TABLE poses(track TEXT, stamp REAL, x REAL, y REAL, z REAL, qx REAL, qy REAL, qz REAL, qw REAL, PRIMARY KEY(track,stamp))')
         self.archive.execute('CREATE TABLE frames(camera INTEGER, frame_id INTEGER, stamp REAL, jpeg BLOB, width INTEGER, height INTEGER, PRIMARY KEY(camera,frame_id))')
         self.archive.execute('CREATE INDEX frame_time ON frames(camera,stamp)')
+        self.archive.execute('CREATE TABLE debug_samples(id INTEGER PRIMARY KEY, kind TEXT, stamp REAL, payload TEXT)')
+        self.archive.execute('CREATE INDEX debug_time ON debug_samples(kind, stamp)')
         self._set_metadata('config', config)
         self._set_metadata('status', self.runner_status)
         self._set_metadata('saved', self.recording_saved)
@@ -140,6 +146,10 @@ class LiveSession(ProcessRunner):
             self.counts = dict(poses=0, frames=0, dropped=0)
             self.archive.execute('DELETE FROM poses')
             self.archive.execute('DELETE FROM frames')
+            self.archive.execute('DELETE FROM debug_samples')
+            for samples in self.debug_samples.values(): samples.clear()
+            self.marker_state.clear()
+            self.marker_clears.clear()
             self.events.clear()
             self._set_metadata('epoch', None, commit=False)
             self._set_metadata('counts', self.counts)
@@ -152,6 +162,7 @@ class LiveSession(ProcessRunner):
             raise ValueError('Expected poses and frames arrays')
         if len(batch.get('poses', [])) > 2000 or len(batch.get('frames', [])) > 4:
             raise ValueError('Batch too large')
+        debug = {key: validate_samples(batch.get(key, []), markers=key == "markers") for key in ("diagnostics", "markers")}
         for p in batch.get('poses', []):
             if not isinstance(p, dict): raise ValueError('Expected a pose object')
             if p['track'] not in self.poses: raise ValueError('Unknown track')
@@ -174,9 +185,10 @@ class LiveSession(ProcessRunner):
             frames.append((camera, finite(f['stamp']), jpg, img.shape[1], img.shape[0]))
         with self.lock:
             if self.ended: raise ValueError('Live session is stopped')
-            stamps = [p[1][0] for p in poses] + [f[1] for f in frames]
+            motion_stamps = [p[1][0] for p in poses] + [f[1] for f in frames]
+            stamps = motion_stamps + [s['stamp'] for values in debug.values() for s in values]
             if not stamps: return
-            if self.latest is not None and max(stamps) < self.latest - 1:
+            if motion_stamps and self.latest is not None and max(motion_stamps) < self.latest - 1:
                 self.reset()
             if self.epoch is None: self.epoch = min(stamps)
             accepted = False
@@ -193,8 +205,25 @@ class LiveSession(ProcessRunner):
                 saved_frames.append((camera, self.next_frame, stamp, jpg, width, height))
                 self.next_frame += 1; self.frame_bytes += len(jpg)
                 self.counts['frames'] += 1; accepted = True
-            if accepted:
-                self.latest = max([v[-1][0] for v in self.poses.values() if v] + [v[-1][1] for v in self.frames if v])
+            for key, samples in debug.items():
+                samples.sort(key=lambda s: s['stamp'])
+                self.debug_samples[key].extend(samples)
+                for sample in samples:
+                    self.archive.execute('INSERT INTO debug_samples(kind,stamp,payload) VALUES(?,?,?)',
+                                         (key, sample['stamp'], json.dumps(sample, allow_nan=False)))
+            for sample in debug['markers']:
+                key = (sample['source'], sample['name'], sample.get('id', 0))
+                if sample.get('action') == 'clear':
+                    previous = self.marker_clears.get(sample['source'])
+                    if previous is None or previous['stamp'] <= sample['stamp']:
+                        self.marker_clears[sample['source']] = sample
+                    self.marker_state = {k:v for k,v in self.marker_state.items() if k[0] != sample['source'] or v['stamp'] > sample['stamp']}
+                elif key not in self.marker_state or self.marker_state[key]['stamp'] <= sample['stamp']:
+                    self.marker_state[key] = sample
+            if len(self.marker_state) > 6000:
+                self.marker_state = dict(sorted(self.marker_state.items(), key=lambda pair: pair[1]['stamp'])[-6000:])
+            if accepted or any(debug.values()):
+                self.latest = max(stamps + ([self.latest] if self.latest is not None else []) + [v[-1][0] for v in self.poses.values() if v] + [v[-1][1] for v in self.frames if v])
                 self.received_at = time.monotonic()
                 cutoff = self.latest-self.config['history_seconds']
                 for values in self.poses.values():
@@ -214,14 +243,15 @@ class LiveSession(ProcessRunner):
                 self.archive.executemany('INSERT OR IGNORE INTO poses VALUES(?,?,?,?,?,?,?,?,?)', saved_poses)
             if saved_frames:
                 self.archive.executemany('INSERT OR IGNORE INTO frames VALUES(?,?,?,?,?,?)', saved_frames)
-            if saved_poses or saved_frames:
+            if saved_poses or saved_frames or any(debug.values()):
                 self._set_metadata('epoch', self.epoch, commit=False)
                 self._set_metadata('counts', self.counts, commit=False)
                 self.archive.commit()
             self.revision += 1
             self.events.append(dict(cursor=self.revision, generation=self.generation,
                 poses=[[t, row[0]-self.epoch, *row[1:]] for t, *row in saved_poses],
-                frames=[[c, fid, stamp-self.epoch, w, h] for c, fid, stamp, jpg, w, h in saved_frames]))
+                frames=[[c, fid, stamp-self.epoch, w, h] for c, fid, stamp, jpg, w, h in saved_frames],
+                **{key: relative_samples(samples, self.epoch) for key, samples in debug.items()}))
             self.changed.notify_all()
 
     def updates(self, cursor, generation):
@@ -276,6 +306,8 @@ class LiveSession(ProcessRunner):
                         recording_saved=self.recording_saved,
                         runner_status=self.runner_status, runner_error=self.runner_error,
                         start=0, time=max(0, cameras[0]['stamps'][-1] if cameras and cameras[0]['stamps'] else max(last,default=duration)),
+                        diagnostics=relative_samples(self.debug_samples["diagnostics"], epoch),
+                        markers=relative_samples([*self.marker_clears.values(), *self.marker_state.values(), *self.debug_samples["markers"]], epoch),
                         tracks=tracks, cameras=cameras, max_gap=self.config['max_pose_gap'], project=self.config)
 
     def close(self):
@@ -419,7 +451,9 @@ class LiveHub:
                     counts = json.loads(meta.get('counts', '{}'))
                     complete_track = conn.execute('SELECT 1 FROM poses LIMIT 1').fetchone() or conn.execute('SELECT 1 FROM frames LIMIT 1').fetchone()
                     if not complete_track:
-                        continue
+                        has_debug = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='debug_samples'").fetchone()
+                        if not has_debug or not conn.execute('SELECT 1 FROM debug_samples LIMIT 1').fetchone():
+                            continue
                     result.append(dict(id=path.stem, name=config.get('name', path.stem), status=status,
                                        updated=path.stat().st_mtime, counts=counts, path=str(path)))
             except (sqlite3.Error, ValueError, KeyError):
@@ -470,12 +504,13 @@ class LiveHub:
                                     width=rows[0][2] if rows else 752, height=rows[0][3] if rows else 480, count=len(rows)))
                 sources.append(dict(db=str(path), camera=i, offset=0))
             if not tracks: raise ValueError('Recording contains no complete pose track')
-            end = max([t['poses'][-1][0] for t in tracks if t['poses']] + [c['stamps'][-1] for c in cameras if c['stamps']], default=0)
+            debug = {kind: load_samples(conn, kind, epoch) for kind in ('diagnostics', 'markers')}
+            end = max([s['stamp'] for values in debug.values() for s in values] + [t['poses'][-1][0] for t in tracks if t['poses']] + [c['stamps'][-1] for c in cameras if c['stamps']], default=0)
             project = dict(id=recording_id, name=config.get('name',recording_id)+' / 回放', adapter=config.get('adapter'),
-                           alignment='none', body_from_camera=config.get('body_from_camera'),
+                           alignment='none', frame_id=config.get('frame_id','world'), body_from_camera=config.get('body_from_camera'),
                            tracks=config['tracks'], cameras=config['cameras'], methods=[])
             data = dict(id=recording_id, project=project, epoch=epoch, duration=end,
-                        start=0, recording_saved=json.loads(meta.get('saved','true')), cameras=cameras, tracks=tracks, max_gap=config.get('max_pose_gap',.25), archive=True)
+                        start=0, **debug, recording_saved=json.loads(meta.get('saved','true')), cameras=cameras, tracks=tracks, max_gap=config.get('max_pose_gap',.25), archive=True)
             return dict(status=json.loads(meta['status']), data=data, project=project,
                         db=str(path), frame_sources=sources)
 

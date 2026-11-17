@@ -3,6 +3,7 @@ import {createRoot} from 'react-dom/client';
 import {flushSync} from 'react-dom';
 import {Activity,ArrowDownToLine,Axis3D,Camera,Check,ChevronDown,ChevronLeft,ChevronRight,Clapperboard,Columns2,Crosshair,Download,Expand,Eye,Film,FolderOpen,Grid3X3,Image,Layers,LoaderCircle,Maximize2,Monitor,MousePointer2,Move3D,Pause,Play,Plus,Repeat2,RotateCcw,Save,Settings2,SkipBack,SkipForward,SlidersHorizontal,Sun,Moon,Trash2,Video,X} from 'lucide-react';
 import Scene from './Scene';
+import DebugPanel from './DebugPanel';
 import Frame from './Frame';
 import {usePlayback} from './usePlayback';
 import {dataSource} from './dataSource';
@@ -73,7 +74,8 @@ function App(){
   const videoBackground=settings.camera==='video-follow';
   const diagnosticStreams=data?.cameras.map((c,i)=>({...c,index:i})).filter(c=>c.role==='diagnostic')||[];
   const diagnosticCamera=diagnosticStreams.find(c=>c.index===settings.diagnosticCamera)?.index??diagnosticStreams[0]?.index;
-  const diagnosticView=settings.inspectionView==='diagnostics'&&diagnosticCamera!==undefined;
+  const debugView=settings.inspectionView==='debug';
+  const diagnosticView=(settings.inspectionView==='diagnostics'&&diagnosticCamera!==undefined)||debugView;
   const diagnosticSelector=<select aria-label="剔除结果来源" value={diagnosticCamera??''} onChange={e=>change('diagnosticCamera',Number(e.target.value))}>{diagnosticStreams.map(c=><option key={c.index} value={c.index}>{c.label||c.topic}</option>)}</select>;
   const fail=e=>setError(e.message||String(e));
   const followLive=value=>{following.current=value;setLiveFollowing(value);};
@@ -357,7 +359,7 @@ function App(){
         {presentation&&<div className="film-clock"><span>{clock(time)}</span><small> / {clock(data?.duration||0)}</small></div>}
         {!presentation&&<div className="scene-tools">
           <div className="tool-stack">{[[MousePointer2,'orbit','自由视角'],[Grid3X3,'top','俯视'],[Crosshair,'follow','跟随'],[Video,'video-follow','视频跟随'],[Camera,'fixed','固定镜头'],[Film,'cinematic','关键帧镜头']].map(([Icon,value,title])=><Tool key={value} title={title} icon={Icon} active={settings.camera===value} onClick={()=>change('camera',value)}/>)}<span className="stack-divider"/><Tool title="重置视角" icon={RotateCcw} onClick={()=>scene.current?.reset?.()}/></div>
-          <div className="tool-stack"><Tool title="米制网格" icon={Grid3X3} active={settings.grid} onClick={()=>change('grid',!settings.grid)}/><Tool title="相机视锥" icon={Camera} active={settings.frustums} onClick={()=>change('frustums',!settings.frustums)}/><Tool title="姿态坐标轴" icon={Axis3D} active={settings.axes} onClick={()=>change('axes',!settings.axes)}/></div>
+          <div className="tool-stack"><Tool title="米制网格" icon={Grid3X3} active={settings.grid} onClick={()=>change('grid',!settings.grid)}/><Tool title="相机视锥" icon={Camera} active={settings.frustums} onClick={()=>change('frustums',!settings.frustums)}/><Tool title="调试三维对象" icon={Activity} active={settings.debugMarkers!==false} onClick={()=>change('debugMarkers',settings.debugMarkers===false)}/><Tool title="姿态坐标轴" icon={Axis3D} active={settings.axes} onClick={()=>change('axes',!settings.axes)}/></div>
         </div>}
         <div className="scene-legend">{data?.tracks.map(t=>settings.visible[t.id]!==false&&<span key={t.id}><i style={{background:settings.colors[t.id]||t.color}}/>{settings.names[t.id]||t.name}</span>)}</div>
         {!data&&!loading&&<div className="empty-state"><FolderOpen size={32}/><h2>运行算法，或打开数据回放</h2><div className="welcome-actions"><button className="primary" onClick={()=>setModal('live')}>运行算法</button><button onClick={()=>setModal('open')}>打开回放</button></div><p className="workflow-help">运行结束后可直接回放，满意后再保存记录。</p></div>}
@@ -369,11 +371,11 @@ function App(){
         onDoubleClick={()=>{setSplit(.7);localStorage.setItem('slam-studio-split','.7');}}
         onKeyDown={e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();const n=Math.max(.2,Math.min(.8,split+(e.key==='ArrowLeft'?-.02:.02)));setSplit(n);localStorage.setItem('slam-studio-split',String(n));}}}/>}
       {data&&(!(presentation&&videoBackground)||diagnosticView)&&<aside className="inspection">
-        {diagnosticStreams.length>0&&<div className="inspection-tabs" role="tablist" aria-label="图像面板">
-          <button role="tab" aria-selected={!diagnosticView} onClick={()=>change('inspectionView','images')}><Camera size={15}/>原图</button>
-          <button role="tab" aria-selected={diagnosticView} onClick={()=>change('inspectionView','diagnostics')}><Crosshair size={15}/>外点剔除</button>
-        </div>}
-        {diagnosticView?<section className="diagnostic-panel" aria-label="外点剔除结果">
+        {<div className="inspection-tabs" role="tablist" aria-label="图像面板">
+          <button role="tab" aria-selected={settings.inspectionView==='images'} onClick={()=>change('inspectionView','images')}><Camera size={15}/>原图</button>
+          <button role="tab" disabled={!diagnosticStreams.length} aria-selected={settings.inspectionView==='diagnostics'} onClick={()=>change('inspectionView','diagnostics')}><Crosshair size={15}/>外点剔除</button>
+        <button role="tab" aria-selected={debugView} onClick={()=>change('inspectionView','debug')}><Activity size={15}/>调试</button></div>}
+        {debugView?<DebugPanel data={data} time={time} onTime={seek}/>:diagnosticView?<section className="diagnostic-panel" aria-label="外点剔除结果">
           <div className="diagnostic-toolbar">{diagnosticSelector}<Tool title="放大剔除图像" icon={Maximize2} onClick={()=>setModal('diagnostic')}/></div>
           <Frame data={data} time={time} camera={diagnosticCamera} indexLabel={data.cameras[diagnosticCamera].label} retainPrevious/>
         </section>:!videoBackground&&<>{!presentation&&diagnosticStreams.length===0&&<div className="panel-heading"><span><Camera size={15}/> 图像</span></div>}

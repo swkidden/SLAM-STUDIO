@@ -67,3 +67,17 @@ curl --noproxy '*' http://127.0.0.1:8767/api/live \
 启动/读bag/仅连接使用当前表单同一份配置，不再跳到另一个高级表单。仅连接会省略启动命令；读bag使用独立端口避免混入实时相机。完整JSON入口用于多算法、环境变量等；JSON与可见字段共享状态。原独立 AdvancedLiveDialog 已移除，话题选择组件独立为 TopicPicker。
 
 验证：`tests/unified-config-browser.mjs` 检查模板切换、YAML路径可见、话题/类型编辑、命名保存、选回及运行提交一致性；结果 `test-results/simple_workflow_20261113/unified-browser.log`。启动请求采用HTTP测试替身验证，无额外启动真实算法。
+
+## 通用调试数据
+
+ROS1 桥接器直接订阅 `/diagnostics`，并发现其他 `diagnostic_msgs/DiagnosticArray` 和 `visualization_msgs/MarkerArray` 话题。诊断由原始话题与状态名称标识，字段保持通用键值。数值可绘制曲线，点号命名的较大字段组默认折叠。调试页支持字段搜索、曲线定位及归档回放。标准诊断消息没有单位字段，发布者应在键名或状态说明中明确单位。
+
+HTTP `/api/live/{id}/samples` 在现有 `poses`、`frames` 之外接收可选 `diagnostics`、`markers` 数组。只发送调试数据也可工作。诊断样例为 `{"schema_version":1,"source":"estimator","name":"frontend","stamp":100.0,"message":"updated","values":{"features":8,"elapsed_ms":0.2}}`。stamp 是与传感器相同的绝对秒时间戳，前端与归档读取统一减去会话 epoch。
+
+诊断值支持数值、布尔、字符串与 null。非有限数值存为 null。旧客户端省略新字段，旧归档缺少调试表时返回空数组。新归档使用附加的 debug_samples 表。SSE 快照与增量均携带调试数据，generation 重置时清理历史。迟到的诊断不会自行重置轨迹。
+
+每批最多 1000 条诊断或 marker；每条诊断最多 256 个标量字段，单条 JSON 最大 32 KiB。
+
+三维对象首版支持 SPHERE 椭球和两点 ARROW，包含 source/name/id、stamp、frame_id、position、Hamilton xyzw orientation、直径 scale、RGBA color、lifetime 和 add/delete/clear action。仅显示与工程 frame_id 一致的对象。当前没有 TF 变换器。持久对象的最新状态保留在实时快照中，删除、过期和历史拖动按消息时间处理。工具栏可开关调试三维对象。
+
+验证命令为 `python3 -m unittest discover -s tests`、`node tests/debug-panel-browser.mjs`。真实诊断回放检查使用 `SLAM_STUDIO_RECORDING_ID=<保存记录ID> node tests/debug-replay-browser.mjs`。浏览器测试默认服务端口 8779，可通过 STUDIO_URL 修改。

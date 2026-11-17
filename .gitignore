@@ -8,3 +8,7 @@ config/
 __pycache__/
 *.log
 test-results/
+
+# These paths can also be symlinks to external experiment storage.
+/cache
+/test-results
