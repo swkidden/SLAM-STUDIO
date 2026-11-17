@@ -24,13 +24,23 @@ try{
   }});
   assert(response.ok(),await response.text());
   await page.getByRole('tab',{name:'调试',exact:true}).click();
-  await page.getByRole('button',{name:'slam_features 8',exact:true}).waitFor();
-  await page.getByRole('button',{name:'slam_features 8',exact:true}).click();
+  await page.getByText('SLAM 特征数', {exact:true}).waitFor();
+  const summary = page.locator('.debug-summary');
+  assert.match(await summary.innerText(), /8/);
+  assert(await page.getByRole('img',{name:'速度对比曲线'}).isVisible());
+  const before = await summary.boundingBox();
+  const speedValues = Object.fromEntries(['imu','visual','final'].flatMap(stage =>
+    ['0','1','2','norm'].map((axis, i) => [`velocity_${stage}.${axis}`, 1+i])));
+  await page.request.post(`${base}/api/live/${id}/samples`,{data:{poses:[{track:'vio',stamp:100.1,position:[0,0,0],orientation:[0,0,0,1]}],diagnostics:[{
+    source:'test',name:'generic_estimator',stamp:100.1,message:'updated',
+    values:{slam_features:6,promotion_failure:'none',...speedValues}
+  }]}});
+  await page.waitForFunction(() => document.querySelector('.debug-summary')?.innerText.includes('6'));
+  assert.deepEqual(await summary.boundingBox(), before);
+  await page.getByLabel('速度分量').selectOption('0');
+  await page.locator('.debug-extra summary').click();
+  await page.getByLabel('调试字段', {exact:true}).selectOption('slam_features');
   assert(await page.getByRole('img',{name:'调试字段曲线'}).isVisible());
-  assert(await page.getByRole('button',{name:'failure.insufficient_baseline 3',exact:true}).isVisible());
-  await page.getByLabel('搜索调试字段').fill('slam');
-  assert.equal(await page.getByRole('button',{name:'failure.insufficient_baseline 3',exact:true}).count(),0);
-  await page.getByLabel('搜索调试字段').fill('');
   await page.screenshot({path:'/tmp/slam-studio-debug-panel.png'});
   await page.setViewportSize({width:390,height:844});
   await page.waitForTimeout(100);

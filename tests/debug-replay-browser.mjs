@@ -13,16 +13,15 @@ try{
   const diagnostics=recording.diagnostics;
   const valid=diagnostics.filter(s=>s.values['information.0']!==undefined);
   assert(valid.length>100);
-  assert(diagnostics.some(s=>Object.keys(s.values).some(k=>k.startsWith('failure.'))));
+  assert(diagnostics.some(s=>s.values.slam_features !== undefined));
   await page.goto(base);
   await page.waitForFunction(()=>window.vio?.loadSession);
   await page.evaluate(async({id,end,time})=>{
     await window.vio.loadSession(id,{camera:'orbit',inspectionView:'debug'},[0,end]);
     await window.vio.renderAt(time);
   },{id:session.id,end:recording.duration,time:valid[Math.floor(valid.length/2)].stamp});
-  await page.getByRole('button',{name:/^slam_features /}).waitFor();
-  await page.getByRole('button',{name:/^slam_features /}).click();
-  assert(await page.getByRole('img',{name:'调试字段曲线'}).isVisible());
+  await page.getByText('SLAM 特征数', {exact:true}).waitFor();
+  assert(await page.getByRole('img',{name:'速度对比曲线'}).isVisible());
   await page.screenshot({path:'/tmp/astravins_debug_eval/studio-replay.png'});
   assert.deepEqual(errors,[]);
   console.log(JSON.stringify({valid_spectra:valid.length,diagnostics:diagnostics.length,markers:recording.markers.length}));

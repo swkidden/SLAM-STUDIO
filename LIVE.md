@@ -70,7 +70,7 @@ curl --noproxy '*' http://127.0.0.1:8767/api/live \
 
 ## 通用调试数据
 
-ROS1 桥接器直接订阅 `/diagnostics`，并发现其他 `diagnostic_msgs/DiagnosticArray` 和 `visualization_msgs/MarkerArray` 话题。诊断由原始话题与状态名称标识，字段保持通用键值。数值可绘制曲线，点号命名的较大字段组默认折叠。调试页支持字段搜索、曲线定位及归档回放。标准诊断消息没有单位字段，发布者应在键名或状态说明中明确单位。
+ROS1 桥接器直接订阅 `/diagnostics`，并发现其他 `diagnostic_msgs/DiagnosticArray` 和 `visualization_msgs/MarkerArray` 话题。诊断由原始话题与状态名称标识，字段保持通用键值。默认固定显示 SLAM 特征数和提升失败原因，三条速度曲线可切换模长或 X/Y/Z。缺数据保留占位，其他字段从折叠选择器查看。支持曲线定位及归档回放。标准诊断消息没有单位字段，发布者应在键名或状态说明中明确单位。
 
 HTTP `/api/live/{id}/samples` 在现有 `poses`、`frames` 之外接收可选 `diagnostics`、`markers` 数组。只发送调试数据也可工作。诊断样例为 `{"schema_version":1,"source":"estimator","name":"frontend","stamp":100.0,"message":"updated","values":{"features":8,"elapsed_ms":0.2}}`。stamp 是与传感器相同的绝对秒时间戳，前端与归档读取统一减去会话 epoch。
 
