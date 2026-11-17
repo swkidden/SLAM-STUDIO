@@ -124,22 +124,26 @@ export default function DebugPanel({data, time, onTime, showMarkers = true, onSh
         {!groups.size && <option value="">等待诊断数据</option>}
         {[...groups].map(([id, group]) => <option key={id} value={id}>{group.name}</option>)}
       </select>
-      <span>{current ? (time - current.stamp > .5 ? '数据过期' : statusText) : '等待数据'}</span>
+      <span>{current ? (time - current.stamp > .5 ? '数据过期' : statusText) : '等待数据'}{Number.isFinite(values.td_ms) && <small className="debug-td">td {values.td_ms.toFixed(3)} ms</small>}</span>
     </div>
     <div className="debug-summary">
       <div><span>SLAM 特征数</span><strong>{values.slam_features ?? '—'}</strong></div>
       <div><span>提升状态</span><strong title={failureText(values)}>{current ? failureText(values) : '—'}</strong></div>
+    </div>
+    <div className="debug-flow" aria-label="SLAM 数量变化">
+      <div title={values.slam_flow}>{values.slam_flow || '原有 → 观测 → 接受 + 新增 —'}</div>
+      <div title={values.promotion_flow}>{values.promotion_flow || '可选 → 几何合格 → 尝试 → 新增 —'}</div>
     </div>
     <div className="debug-msckf" aria-label="MSCKF 特征统计">
       <span>MSCKF</span><span>候选 <strong>{values.msckf_candidates ?? '—'}</strong></span>
       <span>送入 <strong>{values.msckf_selected ?? '—'}</strong></span>
       <span>接受 <strong>{values.msckf_accepted ?? '—'}</strong></span>
     </div>
-    <div className="debug-ellipsoids">
+    {(showMarkers || covariancePresent || constraintPresent) && <div className="debug-ellipsoids">
       <label><input type="checkbox" checked={showMarkers} onChange={event => onShowMarkers?.(event.target.checked)}/>显示椭球</label>
       <span style={{color:'#79baff'}}>位置协方差 {covariancePresent ? '●' : '—'}</span>
       <span style={{color:'#eeb95b'}}>SLAM约束 {constraintPresent ? '●' : '—'}</span>
-    </div>
+    </div>}
     <div className="debug-chart-heading"><select aria-label="速度视图" value={mode} onChange={event => setMode(event.target.value)}>
       <option value="speed">速度 · m/s</option><option value="correction">修正量 · m/s</option>
       </select>

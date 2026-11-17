@@ -34,17 +34,19 @@ try{
   assert.match(await summary.innerText(), /8/);
   assert(await page.getByRole('img',{name:'速度对比曲线'}).isVisible());
   const before = await summary.boundingBox();
-  assert.equal(await page.getByLabel('显示椭球', {exact:true}).isChecked(), false);
+  assert.equal(await page.getByLabel('显示椭球', {exact:true}).count(), 0);
   const speedValues = Object.fromEntries(['imu','visual','final'].flatMap(stage =>
     ['0','1','2','norm'].map((axis, i) => [`velocity_${stage}.${axis}`, 1+i])));
   speedValues['velocity_visual.0'] = 2;
   speedValues['velocity_visual.1'] = 1;
   await page.request.post(`${base}/api/live/${id}/samples`,{data:{poses:[{track:'vio',stamp:100.1,position:[0,0,0],orientation:[0,0,0,1]}],diagnostics:[{
     source:'test',name:'generic_estimator',stamp:100.1,message:'updated',
-    values:{slam_features:6,promotion_failure:'none',msckf_candidates:30,msckf_selected:20,msckf_accepted:12,...speedValues}
+    values:{slam_features:6,promotion_failure:'none',msckf_candidates:30,msckf_selected:20,msckf_accepted:12,td_ms:.11,slam_flow:'原有 10 → 观测 8 → 接受 2 + 新增 4',promotion_flow:'可选 100 → 几何合格 10 → 尝试 8 → 新增 4',...speedValues}
   }]}});
   await page.waitForFunction(() => document.querySelector('.debug-summary')?.innerText.includes('6'));
   assert.deepEqual(await summary.boundingBox(), before);
+  assert.match(await page.getByLabel('SLAM 数量变化').innerText(), /接受 2/);
+  assert(await page.getByText('td 0.110 ms', {exact:true}).isVisible());
   assert.match(await page.getByLabel('MSCKF 特征统计').innerText(), /30[\s\S]*20[\s\S]*12/);
   await page.getByLabel('速度分量').selectOption('0');
   await page.getByLabel('速度视图').selectOption('correction');
