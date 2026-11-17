@@ -1,5 +1,6 @@
 import React, {useMemo, useState} from 'react';
 import './debug.css';
+import {markersAt} from './DebugMarkers';
 
 const speeds = [
   {key: 'velocity_imu', label: 'IMU 预测速度', color: '#eeb95b'},
@@ -49,7 +50,7 @@ function failureText(values) {
   return text;
 }
 
-export default function DebugPanel({data, time, onTime}) {
+export default function DebugPanel({data, time, onTime, showMarkers = true, onShowMarkers}) {
   const [source, setSource] = useState('');
   const [axis, setAxis] = useState('norm');
   const [mode, setMode] = useState('speed');
@@ -74,6 +75,9 @@ export default function DebugPanel({data, time, onTime}) {
     current = sample;
   }
   const values = current?.values || {};
+  const visibleMarkers = markersAt(data.markers || [], time, data.project.frame_id || 'global');
+  const covariancePresent = visibleMarkers.some(([, marker]) => marker.name === 'position_covariance');
+  const constraintPresent = visibleMarkers.some(([, marker]) => marker.name === 'slam_constraint');
   const actions = {visual_boost: '视觉约束增强', velocity_damping: '弱方向速度抑制', mixed: '增强与速度抑制'};
   const statusText = actions[values.degeneracy] || ({weak: '弱约束', no_constraint: '缺少 SLAM 约束', invalid: '分析无效'}[values.analysis]) || current?.message;
 
@@ -125,6 +129,16 @@ export default function DebugPanel({data, time, onTime}) {
     <div className="debug-summary">
       <div><span>SLAM 特征数</span><strong>{values.slam_features ?? '—'}</strong></div>
       <div><span>提升状态</span><strong title={failureText(values)}>{current ? failureText(values) : '—'}</strong></div>
+    </div>
+    <div className="debug-msckf" aria-label="MSCKF 特征统计">
+      <span>MSCKF</span><span>候选 <strong>{values.msckf_candidates ?? '—'}</strong></span>
+      <span>送入 <strong>{values.msckf_selected ?? '—'}</strong></span>
+      <span>接受 <strong>{values.msckf_accepted ?? '—'}</strong></span>
+    </div>
+    <div className="debug-ellipsoids">
+      <label><input type="checkbox" checked={showMarkers} onChange={event => onShowMarkers?.(event.target.checked)}/>显示椭球</label>
+      <span style={{color:'#79baff'}}>位置协方差 {covariancePresent ? '●' : '—'}</span>
+      <span style={{color:'#eeb95b'}}>SLAM约束 {constraintPresent ? '●' : '—'}</span>
     </div>
     <div className="debug-chart-heading"><select aria-label="速度视图" value={mode} onChange={event => setMode(event.target.value)}>
       <option value="speed">速度 · m/s</option><option value="correction">修正量 · m/s</option>

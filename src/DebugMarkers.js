@@ -27,7 +27,14 @@ export function updateDebugMarkers(group,samples,time,frame){
     const color=new T.Color(...sample.color.slice(0,3));
     let object;
     if(sample.type==='ellipsoid'){
-      object=new T.Mesh(new T.SphereGeometry(1,24,16),new T.MeshBasicMaterial({color,transparent:true,opacity:sample.color[3],depthWrite:false,wireframe:false}));
+      object = new T.Group();
+      const surface = new T.Mesh(new T.SphereGeometry(1,24,16), new T.MeshBasicMaterial({
+        color, transparent:true, opacity:sample.color[3], depthWrite:false, side:T.DoubleSide,
+      }));
+      const outline = new T.Mesh(new T.SphereGeometry(1,16,12), new T.MeshBasicMaterial({
+        color, transparent:true, opacity:.55, depthWrite:false, wireframe:true, side:T.DoubleSide,
+      }));
+      object.add(surface, outline);
       object.position.fromArray(sample.position);
       object.quaternion.fromArray(sample.orientation).normalize();
       object.scale.fromArray(sample.scale.map(x=>x/2));

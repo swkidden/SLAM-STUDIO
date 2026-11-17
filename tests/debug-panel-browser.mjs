@@ -1,6 +1,7 @@
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
-import {markersAt} from '../src/DebugMarkers.js';
+import {markersAt, updateDebugMarkers} from '../src/DebugMarkers.js';
+import {Group, DoubleSide} from 'three';
 
 const base=process.env.STUDIO_URL||'http://127.0.0.1:8779';
 const marker={source:'test',name:'ellipsoid',id:0,stamp:0,frame_id:'world',action:'add',type:'ellipsoid',position:[0,0,0],orientation:[0,0,0,1],scale:[2,4,6],color:[1,.4,.2,.3],lifetime:.5};
@@ -9,6 +10,10 @@ assert.equal(markersAt([marker],.6,'world').length,0);
 assert.equal(markersAt([marker,{...marker,stamp:.2,action:'delete'}],.3,'world').length,0);
 assert.equal(markersAt([marker],.1,'other').length,0);
 assert.equal(markersAt([marker,{...marker,stamp:.2,action:'clear'}],.3,'world').length,0);
+const markerGroup = new Group();
+updateDebugMarkers(markerGroup, [marker], .1, 'world');
+assert.equal(markerGroup.children[0].children[0].material.side, DoubleSide);
+assert.equal(markerGroup.children[0].children[1].material.wireframe, true);
 const browser=await chromium.launch({headless:true,args:['--no-sandbox','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
 const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];
 page.on('pageerror',e=>errors.push(e.message));
@@ -29,16 +34,18 @@ try{
   assert.match(await summary.innerText(), /8/);
   assert(await page.getByRole('img',{name:'速度对比曲线'}).isVisible());
   const before = await summary.boundingBox();
+  assert(await page.getByLabel('显示椭球', {exact:true}).isChecked());
   const speedValues = Object.fromEntries(['imu','visual','final'].flatMap(stage =>
     ['0','1','2','norm'].map((axis, i) => [`velocity_${stage}.${axis}`, 1+i])));
   speedValues['velocity_visual.0'] = 2;
   speedValues['velocity_visual.1'] = 1;
   await page.request.post(`${base}/api/live/${id}/samples`,{data:{poses:[{track:'vio',stamp:100.1,position:[0,0,0],orientation:[0,0,0,1]}],diagnostics:[{
     source:'test',name:'generic_estimator',stamp:100.1,message:'updated',
-    values:{slam_features:6,promotion_failure:'none',...speedValues}
+    values:{slam_features:6,promotion_failure:'none',msckf_candidates:30,msckf_selected:20,msckf_accepted:12,...speedValues}
   }]}});
   await page.waitForFunction(() => document.querySelector('.debug-summary')?.innerText.includes('6'));
   assert.deepEqual(await summary.boundingBox(), before);
+  assert.match(await page.getByLabel('MSCKF 特征统计').innerText(), /30[\s\S]*20[\s\S]*12/);
   await page.getByLabel('速度分量').selectOption('0');
   await page.getByLabel('速度视图').selectOption('correction');
   assert.equal(await page.locator('.debug-legend strong').first().innerText(), '0.000');
