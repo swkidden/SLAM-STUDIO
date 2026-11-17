@@ -76,7 +76,7 @@ function App(){
   const diagnosticCamera=diagnosticStreams.find(c=>c.index===settings.diagnosticCamera)?.index??diagnosticStreams[0]?.index;
   const debugView=settings.inspectionView==='debug';
   const diagnosticView=(settings.inspectionView==='diagnostics'&&diagnosticCamera!==undefined)||debugView;
-  const diagnosticSelector=<select aria-label="剔除结果来源" value={diagnosticCamera??''} onChange={e=>change('diagnosticCamera',Number(e.target.value))}>{diagnosticStreams.map(c=><option key={c.index} value={c.index}>{c.label||c.topic}</option>)}</select>;
+  const diagnosticSelector=<select aria-label="特征显示模式" value={diagnosticCamera??''} onChange={e=>change('diagnosticCamera',Number(e.target.value))}>{diagnosticStreams.map(c=><option key={c.index} value={c.index}>{c.label||c.topic}</option>)}</select>;
   const fail=e=>setError(e.message||String(e));
   const followLive=value=>{following.current=value;setLiveFollowing(value);};
   const historyRequest=useRef(0);
@@ -373,9 +373,9 @@ function App(){
       {data&&(!(presentation&&videoBackground)||diagnosticView)&&<aside className="inspection">
         {<div className="inspection-tabs" role="tablist" aria-label="图像面板">
           <button role="tab" aria-selected={settings.inspectionView==='images'} onClick={()=>change('inspectionView','images')}><Camera size={15}/>原图</button>
-          <button role="tab" disabled={!diagnosticStreams.length} aria-selected={settings.inspectionView==='diagnostics'} onClick={()=>change('inspectionView','diagnostics')}><Crosshair size={15}/>外点剔除</button>
+          <button role="tab" disabled={!diagnosticStreams.length} aria-selected={settings.inspectionView==='diagnostics'} onClick={()=>change('inspectionView','diagnostics')}><Crosshair size={15}/>特征跟踪</button>
         <button role="tab" aria-selected={debugView} onClick={()=>change('inspectionView','debug')}><Activity size={15}/>调试</button></div>}
-        {debugView?<DebugPanel data={data} time={time} onTime={seek} showMarkers={settings.debugMarkers!==false} onShowMarkers={value=>change('debugMarkers',value)}/>:diagnosticView?<section className="diagnostic-panel" aria-label="外点剔除结果">
+        {debugView?<DebugPanel data={data} time={time} onTime={seek} showMarkers={settings.debugMarkers!==false} onShowMarkers={value=>change('debugMarkers',value)}/>:diagnosticView?<section className="diagnostic-panel" aria-label="特征跟踪结果">
           <div className="diagnostic-toolbar">{diagnosticSelector}<Tool title="放大剔除图像" icon={Maximize2} onClick={()=>setModal('diagnostic')}/></div>
           <Frame data={data} time={time} camera={diagnosticCamera} indexLabel={data.cameras[diagnosticCamera].label} retainPrevious/>
         </section>:!videoBackground&&<>{!presentation&&diagnosticStreams.length===0&&<div className="panel-heading"><span><Camera size={15}/> 图像</span></div>}

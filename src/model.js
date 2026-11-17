@@ -6,7 +6,7 @@ export const defaults = {
   visible: {}, colors: {}, names: {}, keyframes: [], selectedTrack: 'method_0',
   followDistance: 1, followHeight: 1, followAngle: 0, frustumLength: 0.25,
   imageCamera: 0,
-  inspectionView: 'images', diagnosticCamera: null,
+  inspectionView: 'images', diagnosticCamera: null, debugMarkers: false,
 };
 export function followView(pose, bodyFromCamera, settings) {
   const up=new Vector3(0,0,1);

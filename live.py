@@ -355,6 +355,14 @@ class LiveHub:
             raise ValueError('Expected tracks and cameras arrays')
         if not 1 <= len(config.get('tracks', [])) <= 8 or not 0 <= len(config['cameras']) <= 4:
             raise ValueError('Expected 1-8 tracks and 0-4 image streams')
+        if config['adapter'] == 'ros1' and len(config['cameras']) < 4:
+            topics = {camera.get('topic') for camera in config['cameras']}
+            for camera in list(config['cameras']):
+                topic = camera.get('topic', '')
+                if topic == '/ov_srvins/trackhist' and '/ov_srvins/trackstereo' not in topics:
+                    camera['label'] = '时序单目'
+                    config['cameras'].append(dict(topic='/ov_srvins/trackstereo', type='sensor_msgs/Image', role='diagnostic', label='双目匹配'))
+                    break
         ids = []
         for i, track in enumerate(config['tracks']):
             if not isinstance(track, dict): raise ValueError('Expected a track object')

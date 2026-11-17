@@ -34,7 +34,7 @@ try{
   assert.match(await summary.innerText(), /8/);
   assert(await page.getByRole('img',{name:'速度对比曲线'}).isVisible());
   const before = await summary.boundingBox();
-  assert(await page.getByLabel('显示椭球', {exact:true}).isChecked());
+  assert.equal(await page.getByLabel('显示椭球', {exact:true}).isChecked(), false);
   const speedValues = Object.fromEntries(['imu','visual','final'].flatMap(stage =>
     ['0','1','2','norm'].map((axis, i) => [`velocity_${stage}.${axis}`, 1+i])));
   speedValues['velocity_visual.0'] = 2;
