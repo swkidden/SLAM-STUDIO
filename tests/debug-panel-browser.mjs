@@ -38,6 +38,9 @@ try{
   await page.waitForFunction(() => document.querySelector('.debug-summary')?.innerText.includes('6'));
   assert.deepEqual(await summary.boundingBox(), before);
   await page.getByLabel('速度分量').selectOption('0');
+  await page.getByLabel('速度视图').selectOption('correction');
+  assert.equal(await page.locator('.debug-legend strong').first().innerText(), '0.000');
+  await page.getByLabel('速度视图').selectOption('speed');
   await page.locator('.debug-extra summary').click();
   await page.getByLabel('调试字段', {exact:true}).selectOption('slam_features');
   assert(await page.getByRole('img',{name:'调试字段曲线'}).isVisible());

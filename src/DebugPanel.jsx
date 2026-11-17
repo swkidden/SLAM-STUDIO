@@ -3,7 +3,7 @@ import './debug.css';
 
 const speeds = [
   {key: 'velocity_imu', label: 'IMU 预测速度', color: '#eeb95b'},
-  {key: 'velocity_visual', label: '视觉预测速度', color: '#68b8ef'},
+  {key: 'velocity_visual', label: 'SLAM 修正后', color: '#68b8ef'},
   {key: 'velocity_final', label: '最终优化速度', color: '#78ce9c'},
 ];
 const reasons = {
@@ -27,14 +27,18 @@ function failureText(values) {
     text = Object.entries(values).filter(([key]) => key.startsWith('failure.'))
       .map(([key, value]) => `${key.slice(8)}=${value}`).join(', ');
   }
-  if (!text || text === 'none') return '无';
-  for (const [key, label] of Object.entries(reasons)) text = text.replaceAll(key, label);
+  if (!text || text === 'none') {
+    const statuses = {no_candidate: '无可提升轨迹', startup_delay: '等待提升', capacity_full: '路标名额已满', disabled: '提升已关闭', attempted: '无失败'};
+    return statuses[values.promotion] || '无';
+  }
+  for (const [key, label] of Object.entries(reasons).sort((a, b) => b[0].length - a[0].length)) text = text.replaceAll(key, label);
   return text;
 }
 
 export default function DebugPanel({data, time, onTime}) {
   const [source, setSource] = useState('');
   const [axis, setAxis] = useState('norm');
+  const [mode, setMode] = useState('speed');
   const [metric, setMetric] = useState('slam_features');
   const groups = useMemo(() => {
     const result = new Map();
@@ -57,11 +61,21 @@ export default function DebugPanel({data, time, onTime}) {
   }
   const values = current?.values || {};
   const start = Math.max(0, time - 20), end = Math.max(20, time);
-  const history = samples.filter(sample => sample.stamp >= start && sample.stamp <= end);
+  const history = samples.filter(sample => sample.stamp >= start && sample.stamp <= end).map(sample => {
+    if (mode === 'speed') return sample;
+    const fields = {...sample.values};
+    for (const stage of speeds) {
+      const key = `${stage.key}.${axis}`;
+      const prior = sample.values[`velocity_imu.${axis}`];
+      const value = sample.values[key];
+      fields[key] = Number.isFinite(prior) && Number.isFinite(value) ? value - prior : null;
+    }
+    return {...sample, values: fields};
+  });
   const x = stamp => (stamp - start) / (end - start) * 600;
   function curve(series, height, label) {
     const numbers = history.flatMap(sample => series.map(item => sample.values[item.key])).filter(Number.isFinite);
-    const bound = 2 ** Math.ceil(Math.log2(Math.max(1, ...numbers.map(Math.abs))));
+    const bound = 2 ** Math.ceil(Math.log2(Math.max(mode === 'correction' ? .001 : 1, ...numbers.map(Math.abs))));
     const y = value => 16 + (bound - value) / (2 * bound) * (height - 32);
     return <svg viewBox={`0 0 600 ${height}`} role="img" aria-label={label}
       onClick={event => {
@@ -95,16 +109,18 @@ export default function DebugPanel({data, time, onTime}) {
     </div>
     <div className="debug-summary">
       <div><span>SLAM 特征数</span><strong>{values.slam_features ?? '—'}</strong></div>
-      <div><span>提升失败</span><strong title={failureText(values)}>{current ? failureText(values) : '—'}</strong></div>
+      <div><span>提升状态</span><strong title={failureText(values)}>{current ? failureText(values) : '—'}</strong></div>
     </div>
-    <div className="debug-chart-heading"><span>速度 · m/s</span>
+    <div className="debug-chart-heading"><select aria-label="速度视图" value={mode} onChange={event => setMode(event.target.value)}>
+      <option value="speed">速度 · m/s</option><option value="correction">修正量 · m/s</option>
+      </select>
       <select aria-label="速度分量" value={axis} onChange={event => setAxis(event.target.value)}>
         <option value="norm">模长</option><option value="0">X</option><option value="1">Y</option><option value="2">Z</option>
       </select>
     </div>
     <div className="debug-speed-chart">{curve(series, 210, '速度对比曲线')}</div>
     <div className="debug-legend">{series.map(item => <div key={item.key} style={{color: item.color}}>
-      <span>{item.label}</span><strong>{display(values[item.key])}</strong>
+      <span>{item.label}</span><strong>{display(mode === 'speed' ? values[item.key] : (Number.isFinite(values[item.key]) && Number.isFinite(values[`velocity_imu.${axis}`]) ? values[item.key] - values[`velocity_imu.${axis}`] : null))}</strong>
     </div>)}</div>
     <div className="debug-times"><span>{start.toFixed(1)} s</span><span>{end.toFixed(1)} s</span></div>
     <details className="debug-extra"><summary>其他指标</summary>
