@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {displayPoseAt} from '../src/model.js';
+const poses=[[0,0,0,0,0,0,0,1],[.04,1,0,0,0,0,0,1]];
+assert.equal(displayPoseAt(poses,.08,.25,false),null);
+assert.equal(displayPoseAt(poses,.08,.25,true).position.x,1);
+assert.equal(displayPoseAt(poses,.08,.25,true).age,.04);
+assert.equal(displayPoseAt(poses,-1,.25,true),null);
+assert.equal(displayPoseAt([],1,.25,true),null);
+assert.equal(displayPoseAt(poses,.02,.25,true).position.x,.5);
+console.log('live pose tests passed');

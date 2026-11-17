@@ -1,0 +1,42 @@
+import {chromium} from 'playwright';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const base=process.env.STUDIO_URL||'http://127.0.0.1:8771';
+const browser=await chromium.launch({headless:true,args:['--no-sandbox','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
+const page=await browser.newPage({viewport:{width:1280,height:800}});const errors=[];
+page.on('pageerror',e=>errors.push(e.message));
+await page.route('**/api/projects',r=>r.fulfill({contentType:'application/json',body:'[]'}));
+const post=async(path,data)=>{const r=await page.request.post(base+path,{data});const b=await r.json();assert(r.ok(),JSON.stringify(b));return b;};
+try{
+ await page.goto(base);await page.waitForFunction(()=>window.vio);
+ const config={adapter:'http',tracks:[{id:'v',name:'VIO'},{id:'gt',name:'GT',truth:true}],cameras:[{topic:'left'},{topic:'right'},{topic:'mask',role:'diagnostic'}],max_frames:2,history_seconds:1};
+ const id=await page.evaluate(c=>window.vio.connectLive(c),config);
+ const jpg=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=752;c.height=480;c.getContext('2d').fillRect(0,0,752,480);return c.toDataURL('image/jpeg').split(',')[1];});
+ for(let i=0;i<30;i++)await post(`/api/live/${id}/samples`,{poses:i<5?[]:['v','gt'].map(track=>({track,stamp:100+i*.1,position:[i*.1,0,0],orientation:[0,0,0,1]})),frames:[0,1,2].map(camera=>({camera,stamp:100+i*.1,jpeg:jpg}))});
+ await page.waitForFunction(()=>window.vio.getState().time>2);
+ await page.getByRole('button',{name:'暂停实时显示',exact:true}).click();await page.waitForFunction(()=>!window.vio.getState().live);
+ await page.getByLabel('播放位置',{exact:true}).fill('0');await page.waitForFunction(()=>document.querySelector('.camera-frame img,.video-background img')?.dataset.frame==='0');
+ await page.getByRole('tab',{name:'外点剔除',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.diagnostic-panel img')?.dataset.frame==='0');
+ await post(`/api/live/${id}/samples`,{poses:[{track:'v',stamp:103,position:[3,0,0],orientation:[0,0,0,1]}]});
+ await page.getByRole('button',{name:'回到实时',exact:true}).click();await page.waitForFunction(()=>window.vio.getState().live);
+ await page.reload();await page.waitForFunction(()=>window.vio.getState().live);assert.equal(await page.evaluate(()=>window.vio.getState().session),id);
+ await page.evaluate(()=>sessionStorage.removeItem('slam-studio-live'));await page.reload();await page.waitForFunction(()=>window.vio);
+ await page.locator('.app-header').getByRole('button',{name:'运行算法',exact:true}).click();await page.getByText('重新打开已有运行',{exact:true}).click();await page.locator('button[data-session-id="'+id+'"]').click();await page.waitForFunction(()=>window.vio.getState().live);
+ await post(`/api/live/${id}/reset`,{});await post(`/api/live/${id}/samples`,{poses:[{track:'v',stamp:1,position:[0,0,0],orientation:[0,0,0,1]}],frames:[{camera:0,stamp:1,jpeg:jpg}]});
+ await page.waitForFunction(()=>window.vio.getState().time===0);
+ await page.getByRole('button',{name:'停止运行',exact:true}).click();await page.waitForFunction(()=>!window.vio.getState().live);
+ await page.waitForFunction(()=>document.querySelector('.camera-frame img,.video-background img')?.complete);
+ await page.getByRole('button',{name:'保存记录',exact:true}).click();
+ const records=await(await page.request.get(base+'/api/recordings')).json();assert(records.some(r=>r.id===id));
+ const folder=fs.realpathSync('test-results/stream_repair_20261113');const tum=folder+'/fixture.tum';fs.writeFileSync(tum,'100 0 0 0 0 0 0 1\n101 1 0 0 0 0 0 1\n102 2 1 0 0 0 0 1\n');
+ const job=await post('/api/load',{name:'Trajectory only',methods:[{name:'VIO',path:tum}]});
+ let session;
+ for(let i=0;i<100;i++){session=await(await page.request.get(base+'/api/session/'+job.id)).json();if(session.status==='ready')break;assert.notEqual(session.status,'error',JSON.stringify(session));await page.waitForTimeout(30);}
+ await page.evaluate(id=>window.vio.loadSession(id,{camera:'follow'},[0,2]),job.id);assert.equal(await page.locator('.no-frame').count(),0);
+ const defaults=await page.evaluate(()=>window.vio.getState().settings);assert.equal(defaults.followDistance,1);assert.equal(defaults.followHeight,1);assert.equal(defaults.frustumLength,.25);assert.equal(defaults.frustums,true);
+ const eye=await page.evaluate(()=>window.vio.getCamera());await page.evaluate(()=>window.vio.renderAt(1));const eye2=await page.evaluate(()=>window.vio.getCamera());assert.notDeepEqual(eye,eye2);
+ await page.keyboard.press('Escape');
+ const exp=await post('/api/export',{session:job.id,kind:'snapshot',start:1,end:2,height:720,fps:30,view:{camera:'follow'}});
+ let result;for(let i=0;i<100;i++){result=await(await page.request.get(base+'/api/export/'+exp.id)).json();if(['done','error'].includes(result.status))break;await page.waitForTimeout(200);}assert.equal(result.status,'done',JSON.stringify(result));
+ assert.deepEqual(errors,[]);console.log(JSON.stringify({ok:true,live:id,offline:job.id,export:exp.id,errors}));
+}finally{await browser.close();}

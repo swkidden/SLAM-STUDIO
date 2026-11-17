@@ -1,0 +1,27 @@
+import assert from 'node:assert/strict';
+import {Matrix4,Quaternion,Vector3} from 'three';
+import {defaults,followView,frameAtOrBefore} from '../src/model.js';
+
+const extrinsic=new Matrix4().set(0,0,1,0,1,0,0,0,0,1,0,0,0,0,0,1);
+const origin=new Vector3(2,3,4),up=new Vector3(0,0,1);
+const pose={position:origin,quaternion:new Quaternion()};
+const initial=followView(pose,extrinsic,defaults);
+assert.deepEqual(initial.position.toArray(),[-8,3,10]);
+const turning={position:origin,quaternion:new Quaternion().setFromAxisAngle(up,Math.PI/2)};
+const turned=followView(turning,extrinsic,defaults);
+assert(turned.position.distanceTo(new Vector3(2,-7,10))<1e-10);
+assert.deepEqual(turned.target.toArray(),origin.toArray());
+const rolled={position:origin,quaternion:turning.quaternion.clone().multiply(new Quaternion().setFromAxisAngle(new Vector3(1,0,0),.8))};
+assert(followView(rolled,extrinsic,defaults).position.distanceTo(turned.position)<1e-10);
+const shifted=followView(pose,extrinsic,{...defaults,followAngle:90,followDistance:5,followHeight:2});
+assert(shifted.position.distanceTo(new Vector3(2,-2,6))<1e-10);
+const vertical=followView(pose,new Matrix4(),defaults);
+assert(vertical.position.toArray().every(Number.isFinite));
+followView(turning,extrinsic,defaults);
+assert.deepEqual(followView(pose,extrinsic,defaults).position.toArray(),initial.position.toArray());
+assert.equal(frameAtOrBefore([0,1,2],1.9),1);
+assert.equal(frameAtOrBefore([0,1,2],1),1);
+assert.equal(frameAtOrBefore([0,1,2],.1),0);
+assert.equal(frameAtOrBefore([1,2],0),-1);
+assert.equal(frameAtOrBefore([],1),-1);
+console.log('Follow geometry: yaw, extrinsic, roll, settings, vertical view, seek determinism passed');

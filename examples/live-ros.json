@@ -1,0 +1,56 @@
+{
+  "name": "VINS-Fusion / Live",
+  "adapter": "ros1",
+  "ros_master_uri": "http://localhost:11311",
+  "frame_id": "world",
+  "tracks": [
+    {
+      "id": "vio",
+      "name": "VINS-Fusion",
+      "topic": "/vins_estimator/odometry",
+      "type": "nav_msgs/Odometry",
+      "color": "#c7ef79"
+    }
+  ],
+  "cameras": [
+    {
+      "topic": "/cam0/image_raw",
+      "type": "sensor_msgs/Image"
+    },
+    {
+      "topic": "/cam1/image_raw",
+      "type": "sensor_msgs/Image"
+    }
+  ],
+  "body_from_camera": [
+    [
+      0,
+      0,
+      1,
+      0
+    ],
+    [
+      1,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      1
+    ]
+  ],
+  "history_seconds": 120,
+  "max_poses": 3000,
+  "max_frames": 120,
+  "max_pose_gap": 0.25,
+  "save_recording": false
+}

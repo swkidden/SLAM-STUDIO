@@ -1,0 +1,26 @@
+{
+  "id": "custom_sequence",
+  "name": "Custom sequence",
+  "dataset": "VIO",
+  "bag": "/absolute/path/recording.bag",
+  "image_topics": ["/cam0/image_raw", "/cam1/image_raw"],
+  "image_time_offset": 0,
+  "alignment": "se3",
+  "max_pose_gap": 0.25,
+  "body_from_camera": [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]],
+  "truth": {
+    "path": "/absolute/path/groundtruth.tum",
+    "quaternion_order": "xyzw",
+    "quaternion_convention": "hamilton",
+    "orientation": "sensor_to_world"
+  },
+  "methods": [{
+    "name": "VIO",
+    "color": "#c7ef79",
+    "path": "/absolute/path/estimated.tum",
+    "timestamp_scale": 1,
+    "time_offset": 0,
+    "position_scale": 1,
+    "sensor_from_body": [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]]
+  }]
+}

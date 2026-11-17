@@ -1,0 +1,62 @@
+{
+  "name": "OpenVINS Astra 1021 实时",
+  "adapter": "ros1",
+  "ros_master_uri": "http://localhost:11311",
+  "frame_id": "global",
+  "tracks": [
+    {
+      "id": "openvins",
+      "name": "OpenVINS IMU",
+      "topic": "/run_subscribe_msckf/poseimu",
+      "type": "geometry_msgs/PoseWithCovarianceStamped",
+      "color": "#67b7ff"
+    }
+  ],
+  "cameras": [
+    {
+      "topic": "/astra_stereo/left/image_raw",
+      "type": "sensor_msgs/Image"
+    },
+    {
+      "topic": "/astra_stereo/right/image_raw",
+      "type": "sensor_msgs/Image"
+    },
+    {
+      "topic": "/run_subscribe_msckf/trackhist",
+      "type": "sensor_msgs/Image",
+      "role": "diagnostic",
+      "label": "OpenVINS 外点判定"
+    }
+  ],
+  "body_from_camera": [
+    [
+      0.99999329,
+      -0.000447257,
+      -0.003635961,
+      -0.018609672
+    ],
+    [
+      0.000441688,
+      0.999998729,
+      -0.001532137,
+      -0.008435216
+    ],
+    [
+      0.003636642,
+      0.001530521,
+      0.999992216,
+      0.009511785
+    ],
+    [
+      0,
+      0,
+      0,
+      1
+    ]
+  ],
+  "history_seconds": 120,
+  "max_poses": 3000,
+  "max_frames": 120,
+  "max_pose_gap": 0.25,
+  "save_recording": false
+}

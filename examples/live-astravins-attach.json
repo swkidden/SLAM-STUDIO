@@ -1,0 +1,38 @@
+{
+  "name": "AstraVins 1021 (attach to running node)",
+  "adapter": "ros1",
+  "ros_master_uri": "http://localhost:11311",
+  "frame_id": "global",
+  "save_recording": false,
+  "tracks": [
+    {
+      "id": "astravins",
+      "name": "AstraVins",
+      "topic": "/ov_srvins/poseimu",
+      "type": "geometry_msgs/PoseWithCovarianceStamped",
+      "color": "#71b4ff"
+    }
+  ],
+  "cameras": [
+    {
+      "topic": "/astra_stereo/left/image_raw",
+      "type": "sensor_msgs/Image",
+      "label": "Left"
+    },
+    {
+      "topic": "/astra_stereo/right/image_raw",
+      "type": "sensor_msgs/Image",
+      "label": "Right"
+    },
+    {
+      "topic": "/ov_srvins/trackhist",
+      "type": "sensor_msgs/Image",
+      "role": "diagnostic",
+      "label": "Tracks"
+    }
+  ],
+  "history_seconds": 120,
+  "max_poses": 3000,
+  "max_frames": 120,
+  "max_pose_gap": 0.25
+}

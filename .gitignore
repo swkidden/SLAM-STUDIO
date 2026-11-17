@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.tools/
+cache/
+exports/
+projects/
+config/
+__pycache__/
+*.log
+test-results/

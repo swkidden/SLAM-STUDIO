@@ -1,0 +1,24 @@
+.video-background{position:absolute;inset:0;overflow:hidden;background:#080b0a}
+.video-background img{display:block;width:100%;height:100%;object-fit:contain}
+.video-mode .scene-heading,.video-mode .scene-legend,.video-mode .film-clock{color:#fff;text-shadow:0 1px 4px #000,0 0 12px #000}
+.video-mode .scene-legend span,.video-mode .film-clock small{color:#fff}
+.video-mode .scene-heading h1{font-size:20px}
+.video-mode .scene-heading{right:80px}
+.video-mode .scene-legend{bottom:20px;gap:12px 18px}
+.video-mode .methods-heading{margin-top:0;border-top:0}
+.presentation .workspace.video-mode{grid-template-columns:1fr;grid-template-rows:1fr}
+.presentation .video-mode .scene-heading{right:260px}
+.presentation .video-mode .film-clock{top:35px;right:30px;bottom:auto;left:auto}
+.presentation .video-mode .scene-legend{bottom:24px}
+@media(max-width:760px){
+  .workspace.video-mode{grid-template-columns:1fr;grid-template-rows:minmax(230px,1fr) 150px}
+  .video-mode .inspection{overflow:auto}
+  .video-mode .track-list{display:block}
+  .video-mode .methods-heading{display:flex;height:28px}
+  .video-mode .track-row{min-height:33px}
+  .video-mode .scene-heading h1{font-size:16px}
+  .video-mode .scene-legend{bottom:12px;gap:8px 12px}
+  .presentation .video-mode .scene-heading{top:18px;right:20px}
+  .presentation .video-mode .film-clock{left:15px;right:auto;top:55px;font-size:12px}
+  .presentation:has(.video-mode) .presentation-controls{bottom:65px}
+}

@@ -1,0 +1,27 @@
+import {chromium} from 'playwright';import assert from 'node:assert/strict';
+const base=process.env.STUDIO_URL||'http://127.0.0.1:8772';
+const browser=await chromium.launch({headless:true,args:['--no-sandbox','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
+const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));let saved=[],submitted;
+try{
+ await page.route('**/api/projects',r=>r.fulfill({contentType:'application/json',body:'[]'}));
+ await page.route('**/api/ros/topics*',r=>r.fulfill({contentType:'application/json',body:JSON.stringify([{name:'/mine/pose',type:'geometry_msgs/PoseStamped'}])}));
+ await page.route('**/api/connection-profiles',async r=>{if(r.request().method()==='POST'){saved=[{...r.request().postDataJSON(),id:'mine'}];return r.fulfill({contentType:'application/json',body:JSON.stringify(saved[0])});}return r.fulfill({contentType:'application/json',body:JSON.stringify(saved)});});
+ await page.goto(base);await page.locator('.app-header').getByRole('button',{name:'运行算法',exact:true}).click();
+ assert((await page.getByLabel('启动命令',{exact:true}).inputValue()).includes('astra_1021.launch'));assert((await page.getByLabel('启动命令',{exact:true}).inputValue()).includes('estimator_config.yaml'));
+ await page.getByLabel('算法配置',{exact:true}).selectOption('preset:basalt');
+ assert.equal(await page.getByLabel('位姿话题',{exact:true}).inputValue(),'/basalt/pose');
+ assert((await page.getByLabel('启动命令',{exact:true}).inputValue()).includes('astra_1021_calib.json'));
+ assert((await page.getByLabel('启动命令',{exact:true}).inputValue()).includes('_image_stamp_compensation_s:=0.00651'));
+ assert.equal(await page.getByLabel('工作目录',{exact:true}).inputValue(),'/root/vins_dev/basalt_astra_ros1');
+ assert.equal(await page.getByLabel('外点剔除图像话题',{exact:true}).count(),0);
+ await page.getByLabel('算法配置',{exact:true}).selectOption('preset:igof');assert((await page.getByLabel('工作目录',{exact:true}).inputValue()).includes('imu_guided_outlier_filter_ws'));assert.equal(await page.getByLabel('位姿话题',{exact:true}).inputValue(),'/ov_msckf/poseimu');
+ await page.getByLabel('配置名称',{exact:true}).fill('我的算法');await page.getByLabel('位姿话题',{exact:true}).fill('/mine/pose');
+ await page.waitForFunction(()=>document.querySelector('[aria-label="位姿消息类型 1"]').value==='geometry_msgs/PoseStamped');
+ assert.equal(await page.getByLabel('位姿话题',{exact:true}).inputValue(),'/mine/pose');
+ await page.getByRole('button',{name:'保存为我的配置',exact:true}).click();await page.waitForFunction(()=>document.querySelector('[aria-label="算法配置"]').value==='mine');
+ assert.equal(saved[0].config.tracks[0].topic,'/mine/pose');
+ await page.getByLabel('算法配置',{exact:true}).selectOption('preset:astra');await page.getByLabel('算法配置',{exact:true}).selectOption('mine');assert.equal(await page.getByLabel('位姿话题',{exact:true}).inputValue(),'/mine/pose');
+ await page.route('**/api/live',async r=>{if(r.request().method()!=='POST')return r.continue();submitted=r.request().postDataJSON();const fixture=await page.request.post(base+'/api/live',{data:{adapter:'http',tracks:[{id:'v'}],cameras:[]}});await r.fulfill({contentType:'application/json',body:await fixture.text()});});
+ await page.getByRole('button',{name:'启动算法',exact:true}).click();await page.waitForFunction(()=>window.vio.getState().live);
+ assert.equal(submitted.tracks[0].topic,saved[0].config.tracks[0].topic);assert.deepEqual(submitted.runner.commands,saved[0].config.runner.commands);assert.deepEqual(errors,[]);console.log(JSON.stringify({ok:true,saved:saved[0].name,topic:submitted.tracks[0].topic}));
+}finally{await browser.close();}

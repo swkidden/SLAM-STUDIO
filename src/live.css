@@ -1,0 +1,18 @@
+.form-grid input:not([type=checkbox]) { height:35px; padding:0 9px; width:100%; }
+.form-grid label { min-width:0; }
+.form-grid select { max-width:100%; }
+.bag-directory { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:8px; }
+.bag-directory label { display:flex; flex-direction:column; gap:8px; min-width:0; font-size:11px; color:var(--muted); }
+.bag-directory button { height:35px; }
+.bag-scan-status { color:var(--muted); font-size:11px; min-height:16px; }
+.live-advanced { align-content:start; }
+@media(max-width:760px) {
+  .app-header { height:136px; flex-basis:136px; }
+  .brand { flex-basis:100%; }
+  .header-actions { width:100%; justify-content:flex-end; }
+  .project-picker { min-width:0; }
+  .loading-overlay { top:136px; }
+}
+
+.stream-metrics {padding:8px 16px;color:var(--muted);font-size:11px;line-height:1.7;font-family:var(--font-mono,monospace);}
+.topic-picker{display:flex;gap:6px}.topic-picker input{flex:1;min-width:0}.topic-picker button{height:35px;padding:0 10px}.topic-status{font-size:10px;color:var(--muted)}

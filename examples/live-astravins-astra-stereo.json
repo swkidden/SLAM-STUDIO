@@ -1,0 +1,75 @@
+{
+  "name": "AstraVins / AstraStereo Live",
+  "adapter": "ros1",
+  "ros_master_uri": "http://localhost:11433",
+  "frame_id": "global",
+  "save_recording": false,
+  "tracks": [
+    {
+      "id": "astravins",
+      "name": "AstraVins (AstraNet + IMU-guided)",
+      "topic": "/ov_srvins/poseimu",
+      "type": "geometry_msgs/PoseWithCovarianceStamped",
+      "color": "#71b4ff"
+    }
+  ],
+  "cameras": [
+    {
+      "topic": "/astra_stereo/left/image_raw",
+      "type": "sensor_msgs/Image",
+      "label": "Left"
+    },
+    {
+      "topic": "/astra_stereo/right/image_raw",
+      "type": "sensor_msgs/Image",
+      "label": "Right"
+    },
+    {
+      "topic": "/ov_srvins/trackhist",
+      "type": "sensor_msgs/Image",
+      "role": "diagnostic",
+      "label": "IMU-guided"
+    }
+  ],
+  "runner": {
+    "auto_master": true,
+    "startup_delay": 8,
+    "commands": [
+      {
+        "id": "camera",
+        "setup": [
+          "/opt/ros/noetic/setup.bash",
+          "/root/vins_dev/astra_stereo_ros1_ws/devel/setup.bash"
+        ],
+        "cwd": "/root/vins_dev/astra_stereo_ros1_ws",
+        "argv": [
+          "roslaunch",
+          "astra_stereo_ros1_cpp",
+          "astra_stereo_vio.launch"
+        ]
+      },
+      {
+        "id": "astravins",
+        "setup": [
+          "/opt/ros/noetic/setup.bash",
+          "/root/vins_dev/AstraVins/devel/setup.bash"
+        ],
+        "cwd": "/root/vins_dev/AstraVins",
+        "env": {
+          "ASTRA_POINT_ENGINE": "/root/vins_dev/vins-astra2/models/epoch200_16x_detector/astra_point.engine",
+          "ASTRA_MATCHER_ENGINE": "/root/vins_dev/vins-astra2/models/epoch200_16x_detector/astra_matcher.engine"
+        },
+        "argv": [
+          "roslaunch",
+          "ov_srvins",
+          "subscribe.launch",
+          "config:=astravins_astra"
+        ]
+      }
+    ]
+  },
+  "history_seconds": 120,
+  "max_poses": 3000,
+  "max_frames": 120,
+  "max_pose_gap": 0.25
+}

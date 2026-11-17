@@ -1,0 +1,47 @@
+{
+  "name": "Basalt Astra 1021",
+  "adapter": "ros1",
+  "ros_master_uri": "http://localhost:11311",
+  "frame_id": "world",
+  "description": "原生 Basalt；默认用于驱动已补偿 6.51 ms 的实时图像。读取未补偿的旧 bag 时，将启动参数 _image_stamp_compensation_s:=0.00651 改为 _image_stamp_compensation_s:=0.0。",
+  "tracks": [
+    {"id": "basalt", "name": "Basalt", "topic": "/basalt/pose", "type": "geometry_msgs/PoseStamped", "color": "#f1b44c"}
+  ],
+  "cameras": [
+    {"topic": "/astra_stereo/left/image_raw", "type": "sensor_msgs/Image"},
+    {"topic": "/astra_stereo/right/image_raw", "type": "sensor_msgs/Image"}
+  ],
+  "body_from_camera": [
+    [0.99995019871582247, 0.0079728422057446218, -0.0060028222821400731, -0.12087304497174804],
+    [-0.0080229472006435199, 0.99993278867884294, -0.0083696142784238925, 0.00022449548570752754],
+    [0.0059356892105589939, 0.008417357787109208, 0.99994695643393061, 0.017536233034473474],
+    [0, 0, 0, 1]
+  ],
+  "history_seconds": 120,
+  "max_poses": 3000,
+  "max_frames": 120,
+  "max_pose_gap": 0.25,
+  "save_recording": false,
+  "runner": {
+    "auto_master": true,
+    "startup_delay": 5,
+    "drain_delay": 3,
+    "commands": [
+      {
+        "id": "basalt",
+        "setup": ["/opt/ros/noetic/setup.bash"],
+        "cwd": "/root/vins_dev/basalt_astra_ros1",
+        "argv": [
+          "/usr/bin/python3", "/root/vins_dev/basalt_astra_ros1/run.py",
+          "__name:=basalt",
+          "_calibration:=/root/vins_dev/basalt/data/astra_1021_calib.json",
+          "_config:=/root/vins_dev/basalt/data/astra_1021_config.json",
+          "_imu_topic:=/astra_stereo/bmi088",
+          "_left_topic:=/astra_stereo/left/image_raw",
+          "_right_topic:=/astra_stereo/right/image_raw",
+          "_image_stamp_compensation_s:=0.00651"
+        ]
+      }
+    ]
+  }
+}
