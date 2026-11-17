@@ -74,6 +74,9 @@ export default function DebugPanel({data, time, onTime}) {
     current = sample;
   }
   const values = current?.values || {};
+  const actions = {visual_boost: '视觉约束增强', velocity_damping: '弱方向速度抑制', mixed: '增强与速度抑制'};
+  const statusText = actions[values.degeneracy] || ({weak: '弱约束', no_constraint: '缺少 SLAM 约束', invalid: '分析无效'}[values.analysis]) || current?.message;
+
   const start = Math.max(0, time - 20), end = Math.max(20, time);
   const history = samples.filter(sample => sample.stamp >= start && sample.stamp <= end).map(sample => {
     if (mode === 'speed') return sample;
@@ -117,7 +120,7 @@ export default function DebugPanel({data, time, onTime}) {
         {!groups.size && <option value="">等待诊断数据</option>}
         {[...groups].map(([id, group]) => <option key={id} value={id}>{group.name}</option>)}
       </select>
-      <span>{current ? (time - current.stamp > .5 ? '数据过期' : current.message) : '等待数据'}</span>
+      <span>{current ? (time - current.stamp > .5 ? '数据过期' : statusText) : '等待数据'}</span>
     </div>
     <div className="debug-summary">
       <div><span>SLAM 特征数</span><strong>{values.slam_features ?? '—'}</strong></div>
