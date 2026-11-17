@@ -31,6 +31,8 @@ try{
   const before = await summary.boundingBox();
   const speedValues = Object.fromEntries(['imu','visual','final'].flatMap(stage =>
     ['0','1','2','norm'].map((axis, i) => [`velocity_${stage}.${axis}`, 1+i])));
+  speedValues['velocity_visual.0'] = 2;
+  speedValues['velocity_visual.1'] = 1;
   await page.request.post(`${base}/api/live/${id}/samples`,{data:{poses:[{track:'vio',stamp:100.1,position:[0,0,0],orientation:[0,0,0,1]}],diagnostics:[{
     source:'test',name:'generic_estimator',stamp:100.1,message:'updated',
     values:{slam_features:6,promotion_failure:'none',...speedValues}
@@ -40,6 +42,9 @@ try{
   await page.getByLabel('速度分量').selectOption('0');
   await page.getByLabel('速度视图').selectOption('correction');
   assert.equal(await page.locator('.debug-legend strong').first().innerText(), '0.000');
+  assert.equal(await page.locator('.debug-legend strong').nth(1).innerText(), '1.000');
+  await page.getByLabel('速度分量').selectOption('norm');
+  assert.equal(await page.locator('.debug-legend strong').nth(1).innerText(), '1.414');
   await page.getByLabel('速度视图').selectOption('speed');
   await page.locator('.debug-extra summary').click();
   await page.getByLabel('调试字段', {exact:true}).selectOption('slam_features');

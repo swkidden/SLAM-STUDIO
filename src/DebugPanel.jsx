@@ -21,6 +21,20 @@ function display(value) {
   if (value === undefined || value === null) return '—';
   return typeof value === 'number' ? value.toFixed(3) : String(value);
 }
+function velocityValue(values, stage, axis, mode) {
+  const value = values[`${stage}.${axis}`];
+  if (mode === 'speed') return value;
+  const components = axis === 'norm' ? ['0', '1', '2'] : [axis];
+  const correction = [];
+  for (const component of components) {
+    const prior = values[`velocity_imu.${component}`];
+    const posterior = values[`${stage}.${component}`];
+    if (!Number.isFinite(prior) || !Number.isFinite(posterior)) return null;
+    correction.push(posterior - prior);
+  }
+  return axis === 'norm' ? Math.hypot(...correction) : correction[0];
+}
+
 function failureText(values) {
   let text = values.promotion_failure;
   if (text === undefined) {
@@ -66,9 +80,7 @@ export default function DebugPanel({data, time, onTime}) {
     const fields = {...sample.values};
     for (const stage of speeds) {
       const key = `${stage.key}.${axis}`;
-      const prior = sample.values[`velocity_imu.${axis}`];
-      const value = sample.values[key];
-      fields[key] = Number.isFinite(prior) && Number.isFinite(value) ? value - prior : null;
+      fields[key] = velocityValue(sample.values, stage.key, axis, mode);
     }
     return {...sample, values: fields};
   });
@@ -120,7 +132,7 @@ export default function DebugPanel({data, time, onTime}) {
     </div>
     <div className="debug-speed-chart">{curve(series, 210, '速度对比曲线')}</div>
     <div className="debug-legend">{series.map(item => <div key={item.key} style={{color: item.color}}>
-      <span>{item.label}</span><strong>{display(mode === 'speed' ? values[item.key] : (Number.isFinite(values[item.key]) && Number.isFinite(values[`velocity_imu.${axis}`]) ? values[item.key] - values[`velocity_imu.${axis}`] : null))}</strong>
+      <span>{item.label}</span><strong>{display(velocityValue(values, item.key.slice(0, item.key.lastIndexOf('.')), axis, mode))}</strong>
     </div>)}</div>
     <div className="debug-times"><span>{start.toFixed(1)} s</span><span>{end.toFixed(1)} s</span></div>
     <details className="debug-extra"><summary>其他指标</summary>
