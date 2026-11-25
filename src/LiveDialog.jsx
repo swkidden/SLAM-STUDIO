@@ -43,7 +43,8 @@ export default function LiveDialog({connect,resume}){
  const run=async()=>{setBusy(true);setError('');try{await connect(fullConfig());}catch(e){setError(e.message);}finally{setBusy(false);}};
  const updateChannel=(kind,i,patch)=>{setConfig(c=>({...c,[kind]:c[kind].map((t,j)=>j===i?{...t,...patch}:t)}));setDirty(true);setNotice('');};
  const updateCommand=patch=>edit({...config,runner:{...(config.runner||{}),commands:[{...(config.runner?.commands?.[0]||{}),...patch},...(config.runner?.commands?.slice(1)||[])]}});
- const argv=config.runner?.commands?.[0]?.argv||[];
+ const launchArgs=config.runner?.commands?.[0]?.argv;
+ const argv=Array.isArray(launchArgs)&&launchArgs.every(arg=>typeof arg==='string')?launchArgs:[];
  const retryArg=argv.find(arg=>arg.startsWith(stereoRetryArg));
  const showRetry=mode!=='attach'&&retryArg!==undefined&&argv[0]==='roslaunch'&&argv[1]==='ov_msckf'&&argv[2]==='subscribe.launch';
  const updateStereoRetry=enabled=>updateCommand({argv:[...argv.filter(arg=>!arg.startsWith(stereoRetryArg)),stereoRetryArg+enabled]});

@@ -16,7 +16,11 @@ try{
  assert.equal(await page.getByLabel('外点剔除图像话题',{exact:true}).count(),0);
  const guided=page.getByRole('switch',{name:'使用 IMU-guided OpenVINS 模板'});
  const retry=page.getByRole('switch',{name:'双目 KLT 重关联'});
+ await page.getByRole('tab',{name:'读取 bag',exact:true}).click();
+ const bagMaster=await page.getByLabel('ROS Master',{exact:true}).inputValue();
  await guided.check();
+ assert.equal(await page.getByRole('tab',{name:'读取 bag',exact:true}).getAttribute('aria-selected'),'true');
+ assert.equal(await page.getByLabel('ROS Master',{exact:true}).inputValue(),bagMaster);
  assert.equal(await page.getByLabel('算法配置',{exact:true}).inputValue(),'preset:igof');
  assert(await retry.isChecked());
  await retry.uncheck();
