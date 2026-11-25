@@ -14,14 +14,26 @@ try{
  assert((await page.getByLabel('启动命令',{exact:true}).inputValue()).includes('_image_stamp_compensation_s:=0.00651'));
  assert.equal(await page.getByLabel('工作目录',{exact:true}).inputValue(),'/root/vins_dev/basalt_astra_ros1');
  assert.equal(await page.getByLabel('外点剔除图像话题',{exact:true}).count(),0);
- await page.getByLabel('算法配置',{exact:true}).selectOption('preset:igof');assert((await page.getByLabel('工作目录',{exact:true}).inputValue()).includes('imu_guided_outlier_filter_ws'));assert.equal(await page.getByLabel('位姿话题',{exact:true}).inputValue(),'/ov_msckf/poseimu');
+ const guided=page.getByRole('switch',{name:'使用 IMU-guided OpenVINS 模板'});
+ const retry=page.getByRole('switch',{name:'双目 KLT 重关联'});
+ await guided.check();
+ assert.equal(await page.getByLabel('算法配置',{exact:true}).inputValue(),'preset:igof');
+ assert(await retry.isChecked());
+ await retry.uncheck();
+ assert(JSON.parse(await page.getByLabel('启动命令',{exact:true}).inputValue()).includes('klt_stereo_retry:=false'));
+ await page.getByRole('tab',{name:'连接已运行算法',exact:true}).click();
+ assert.equal(await retry.count(),0);
+ await page.getByRole('tab',{name:'启动算法',exact:true}).click();
+ assert(!await retry.isChecked());
+ assert((await page.getByLabel('工作目录',{exact:true}).inputValue()).includes('imu_guided_outlier_filter_ws'));assert.equal(await page.getByLabel('位姿话题',{exact:true}).inputValue(),'/ov_msckf/poseimu');
  await page.getByLabel('配置名称',{exact:true}).fill('我的算法');await page.getByLabel('位姿话题',{exact:true}).fill('/mine/pose');
  await page.waitForFunction(()=>document.querySelector('[aria-label="位姿消息类型 1"]').value==='geometry_msgs/PoseStamped');
  assert.equal(await page.getByLabel('位姿话题',{exact:true}).inputValue(),'/mine/pose');
  await page.getByRole('button',{name:'保存为我的配置',exact:true}).click();await page.waitForFunction(()=>document.querySelector('[aria-label="算法配置"]').value==='mine');
  assert.equal(saved[0].config.tracks[0].topic,'/mine/pose');
+ assert(saved[0].config.runner.commands[0].argv.includes('klt_stereo_retry:=false'));
  await page.getByLabel('算法配置',{exact:true}).selectOption('preset:astra');await page.getByLabel('算法配置',{exact:true}).selectOption('mine');assert.equal(await page.getByLabel('位姿话题',{exact:true}).inputValue(),'/mine/pose');
  await page.route('**/api/live',async r=>{if(r.request().method()!=='POST')return r.continue();submitted=r.request().postDataJSON();const fixture=await page.request.post(base+'/api/live',{data:{adapter:'http',tracks:[{id:'v'}],cameras:[]}});await r.fulfill({contentType:'application/json',body:await fixture.text()});});
  await page.getByRole('button',{name:'启动算法',exact:true}).click();await page.waitForFunction(()=>window.vio.getState().live);
- assert.equal(submitted.tracks[0].topic,saved[0].config.tracks[0].topic);assert.deepEqual(submitted.runner.commands,saved[0].config.runner.commands);assert.deepEqual(errors,[]);console.log(JSON.stringify({ok:true,saved:saved[0].name,topic:submitted.tracks[0].topic}));
+ assert.equal(submitted.tracks[0].topic,saved[0].config.tracks[0].topic);assert.deepEqual(submitted.runner.commands,saved[0].config.runner.commands);assert(submitted.runner.commands[0].argv.includes('klt_stereo_retry:=false'));assert.deepEqual(errors,[]);console.log(JSON.stringify({ok:true,saved:saved[0].name,topic:submitted.tracks[0].topic}));
 }finally{await browser.close();}

@@ -18,7 +18,7 @@ bash /root/vins_dev/vio_studio/start.sh
 
 ## 常用操作
 
-- **运行算法**：选 AstraVins 或 IMU-guided OpenVINS，再选实时相机、读取 bag 或连接已有算法。读 bag 只需选择文件并点击“运行并播放”。
+- **运行算法**：选 AstraVins 或 IMU-guided OpenVINS，再选实时相机、读取 bag 或连接已有算法。“使用 IMU-guided OpenVINS 模板”开关可直接切换到该算法。“双目 KLT 重关联”默认开启，可在启动或读 bag 前关闭。该开关需要 IMU-guided OpenVINS 的 ROS1 `subscribe.launch` 支持 `klt_stereo_retry` 参数。读 bag 只需选择文件并点击“运行并播放”。
 - **打开回放**：选择已保存记录；或切到“轨迹文件”填写 TUM 路径。真值、图像可选。
 - **停止运行**后自动回到开头，点播放检查结果；点击**保存记录**才长期保留。
 - 话题、ROS Master 和自定义 JSON 收进“其他算法 / 高级设置”；展示工程和数据配置位于顶栏“更多”。
